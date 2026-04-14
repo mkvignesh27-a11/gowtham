@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Expense Tracker</title>
+
+    <!-- Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Chart.js (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+
+  <body>
+    <!-- Loading overlay (simulated delay) -->
+    <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
+      <div class="spinner" role="status" aria-label="Loading"></div>
+      <div class="loading-text">Loading…</div>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Sidebar navigation">
+        <div class="brand">
+          <div class="brand-badge">ET</div>
+          <div class="brand-text">
+            <div class="brand-title">Expense Tracker</div>
+            <div class="brand-subtitle">Local • Private • Fast</div>
+          </div>
+        </div>
+
+        <nav class="nav">
+          <button class="nav-item is-active" data-route="dashboard" type="button">
+            <span class="nav-dot"></span>
+            <span>Dashboard</span>
+          </button>
+          <button class="nav-item" data-route="add" type="button">
+            <span class="nav-dot"></span>
+            <span>Add Expense</span>
+          </button>
+          <button class="nav-item" data-route="reports" type="button">
+            <span class="nav-dot"></span>
+            <span>Reports</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <button class="ghost-btn" id="exportBtn" type="button" title="Export JSON">
+            Export
+          </button>
+          <button class="ghost-btn danger" id="clearAllBtn" type="button" title="Delete all expenses">
+            Clear All
+          </button>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div class="topbar-left">
+            <button class="icon-btn mobile-only" id="mobileMenuBtn" type="button" aria-label="Toggle menu">
+              <span class="icon-lines"></span>
+            </button>
+            <div>
+              <h1 class="page-title" id="pageTitle">Dashboard</h1>
+              <p class="page-subtitle" id="pageSubtitle">Overview of your spending</p>
+            </div>
+          </div>
+          <div class="topbar-right">
+            <div class="pill" id="expenseCountPill">0 expenses</div>
+          </div>
+        </header>
+
+        <!-- DASHBOARD -->
+        <section class="view is-active" id="view-dashboard" data-view="dashboard">
+          <div class="grid cards-grid">
+            <div class="card metric-card">
+              <div class="metric-label">Total Expenses</div>
+              <div class="metric-value" id="metricTotal">$0.00</div>
+              <div class="metric-hint">All-time</div>
+            </div>
+            <div class="card metric-card accent-green">
+              <div class="metric-label">Today's Expenses</div>
+              <div class="metric-value" id="metricToday">$0.00</div>
+              <div class="metric-hint">Today</div>
+            </div>
+            <div class="card metric-card accent-indigo">
+              <div class="metric-label">Monthly Expenses</div>
+              <div class="metric-value" id="metricMonth">$0.00</div>
+              <div class="metric-hint" id="metricMonthHint">This month</div>
+            </div>
+          </div>
+
+          <div class="grid dashboard-grid">
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">Recent Transactions</div>
+                  <div class="card-subtitle">Last 5 expenses</div>
+                </div>
+                <button class="primary-btn small" id="goAddFromDashboard" type="button">Add</button>
+              </div>
+
+              <div id="recentEmpty" class="empty-state">
+                <div class="empty-emoji">—</div>
+                <div class="empty-title">No expenses yet</div>
+                <div class="empty-subtitle">Add your first expense to see insights here.</div>
+              </div>
+
+              <div class="recent-list" id="recentList" hidden></div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">This Month Snapshot</div>
+                  <div class="card-subtitle">Category breakdown</div>
+                </div>
+              </div>
+              <div class="chart-wrap">
+                <canvas id="dashboardDonut" aria-label="Monthly category chart"></canvas>
+              </div>
+              <div id="dashboardChartEmpty" class="empty-state compact" hidden>
+                <div class="empty-title">Nothing to chart</div>
+                <div class="empty-subtitle">Add expenses in this month to see analytics.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ADD EXPENSE -->
+        <section class="view" id="view-add" data-view="add">
+          <div class="grid add-grid">
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title" id="formTitle">Add Expense</div>
+                  <div class="card-subtitle">Track what you spend—quickly.</div>
+                </div>
+              </div>
+
+              <form id="expenseForm" class="form" novalidate>
+                <input type="hidden" id="expenseId" />
+
+                <div class="form-row">
+                  <div class="field">
+                    <label for="amount">Amount</label>
+                    <div class="input-prefix">
+                      <span>$</span>
+                      <input
+                        id="amount"
+                        name="amount"
+                        type="number"
+                        inputmode="decimal"
+                        min="0.01"
+                        step="0.01"
+                        placeholder="0.00"
+                        required
+                      />
+                    </div>
+                    <div class="field-hint" id="amountHint">Enter a positive amount.</div>
+                  </div>
+
+                  <div class="field">
+                    <label for="category">Category</label>
+                    <select id="category" name="category" required>
+                      <option value="" disabled selected>Select</option>
+                      <option>Food</option>
+                      <option>Travel</option>
+                      <option>Shopping</option>
+                      <option>Bills</option>
+                      <option>Others</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="field">
+                    <label for="date">Date</label>
+                    <input id="date" name="date" type="date" required />
+                  </div>
+                  <div class="field">
+                    <label for="notes">Notes</label>
+                    <input id="notes" name="notes" type="text" maxlength="80" placeholder="Optional" />
+                    <div class="field-hint">Up to 80 characters.</div>
+                  </div>
+                </div>
+
+                <div class="form-actions">
+                  <button class="primary-btn" type="submit" id="saveBtn">Save Expense</button>
+                  <button class="secondary-btn" type="button" id="resetBtn">Reset</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="card soft">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">Tips</div>
+                  <div class="card-subtitle">A few smart defaults</div>
+                </div>
+              </div>
+              <ul class="tips">
+                <li><b>Auto date:</b> set to today by default.</li>
+                <li><b>Edit flow:</b> click “Edit” in the table to load here.</li>
+                <li><b>Privacy:</b> everything stays in your browser (LocalStorage).</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- REPORTS -->
+        <section class="view" id="view-reports" data-view="reports">
+          <div class="grid reports-top">
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">Filters</div>
+                  <div class="card-subtitle">Refine the expense list</div>
+                </div>
+              </div>
+
+              <div class="filters">
+                <div class="field">
+                  <label for="filterCategory">Category</label>
+                  <select id="filterCategory">
+                    <option value="">All</option>
+                    <option>Food</option>
+                    <option>Travel</option>
+                    <option>Shopping</option>
+                    <option>Bills</option>
+                    <option>Others</option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label for="filterMonth">Month</label>
+                  <input id="filterMonth" type="month" />
+                </div>
+
+                <div class="field">
+                  <label for="filterFrom">From</label>
+                  <input id="filterFrom" type="date" />
+                </div>
+
+                <div class="field">
+                  <label for="filterTo">To</label>
+                  <input id="filterTo" type="date" />
+                </div>
+
+                <div class="filter-actions">
+                  <button class="secondary-btn" type="button" id="applyFiltersBtn">Apply</button>
+                  <button class="ghost-btn" type="button" id="clearFiltersBtn">Clear</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">Monthly Total</div>
+                  <div class="card-subtitle" id="reportsMonthLabel">Selected month</div>
+                </div>
+                <div class="pill pill-green" id="monthlyTotalPill">$0.00</div>
+              </div>
+              <div class="chart-wrap">
+                <canvas id="reportsBar" aria-label="Monthly totals bar chart"></canvas>
+              </div>
+              <div id="reportsBarEmpty" class="empty-state compact" hidden>
+                <div class="empty-title">No monthly data</div>
+                <div class="empty-subtitle">Try selecting a month with expenses.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid reports-bottom">
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">Expense List</div>
+                  <div class="card-subtitle">Edit or delete any entry</div>
+                </div>
+              </div>
+
+              <div id="tableEmpty" class="empty-state" hidden>
+                <div class="empty-emoji">—</div>
+                <div class="empty-title">No matching expenses</div>
+                <div class="empty-subtitle">Adjust filters or add a new expense.</div>
+              </div>
+
+              <div class="table-wrap" id="tableWrap">
+                <table class="table" aria-label="Expenses table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Category</th>
+                      <th class="right">Amount</th>
+                      <th>Notes</th>
+                      <th class="right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="expensesTbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">Category-wise Summary</div>
+                  <div class="card-subtitle">Based on current filters</div>
+                </div>
+              </div>
+              <div class="chart-wrap">
+                <canvas id="reportsDonut" aria-label="Category summary chart"></canvas>
+              </div>
+              <div id="reportsDonutEmpty" class="empty-state compact" hidden>
+                <div class="empty-title">No data</div>
+                <div class="empty-subtitle">Add expenses or broaden your filters.</div>
+              </div>
+              <div class="summary-list" id="categorySummaryList"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
